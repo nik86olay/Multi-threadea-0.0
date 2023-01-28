@@ -1,13 +1,14 @@
 package org.example;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class Main {
     public static void main(String[] args) {
 
-        List<Thread> threads = new ArrayList<>();
+        List<Future<Integer>> threads = new ArrayList<>();
+        List<Integer> result = new ArrayList<>();
+        final ExecutorService threadPool = Executors.newFixedThreadPool(8);
 
         String[] texts = new String[25];
         for (int i = 0; i < texts.length; i++) {
@@ -17,25 +18,30 @@ public class Main {
         long startTs = System.currentTimeMillis(); // start time
 
         for (String text : texts) {
-            threads.add(new Thread(() -> processingString(text)));
+            threads.add(threadPool.submit(() -> processingString(text)));
         }
-        threads.forEach(Thread::start);
-
-        for (Thread thread : threads) {
+        threads.forEach(x -> {
             try {
-                thread.join(); // зависаем, ждём когда поток объект которого лежит в thread завершится
-            } catch (InterruptedException e) {
+                result.add(x.get());
+            } catch (InterruptedException | ExecutionException e) {
                 throw new RuntimeException(e);
             }
+        });
+
+        Optional<Integer> max = result.stream().max(Integer::compareTo);
+        if (max.isPresent()) {
+            Integer x = max.get();
+            System.out.println("Максимальный интервал значений среди всех строк - " + x);
         }
 
         long endTs = System.currentTimeMillis(); // end time
 
         System.out.println("Time: " + (endTs - startTs) + "ms");
+        threadPool.shutdown();
     }
 
 
-    private static void processingString(String text) {
+    private static int processingString(String text) {
         int maxSize = 0;
         for (int i = 0; i < text.length(); i++) {
             for (int j = 0; j < text.length(); j++) {
@@ -55,6 +61,7 @@ public class Main {
             }
         }
         System.out.println(text.substring(0, 100) + " -> " + maxSize);
+        return maxSize;
     }
 
     public static String generateText(String letters, int length) {
